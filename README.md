@@ -2,6 +2,8 @@
 
 This nextjs app will embed a free mint frame in Warpcast 🎉
 
+It's powered by the Neynar API that checks like and recast status of the post that embeds this frame.
+
 ## Zora setup
 
 Any 1155 collection on Zora should be supported, if you need ERC721 support please open an issue!
@@ -15,7 +17,7 @@ $ yarn
 ```
 
 1. Copy `.env.example` to `.env.local` (or put the variables in your environment) and update the values.
-2. Update the `src/app/config.ts` file with your chain, contract address and collection token ID
+2. Update the `src/config.ts` file with your chain, contract address and collection token ID
 
 For added security you might want to enable KV on vercel! This will save any sucessful mint requests and prevent people to spam free mints.
 
