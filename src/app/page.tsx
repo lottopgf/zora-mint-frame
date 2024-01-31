@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex' }}>
-      <h1 style={{ margin: 'auto' }}>Free mint on Zora in a Frame on Farcaster!</h1>
+    <div style={{ minHeight: '95dvh', display: 'flex' }}>
+      <h1 style={{ margin: 'auto', color: 'white', fontFamily: 'sans-serif', fontSize: '3rem' }}>Free mint on Zora in a Frame on Farcaster!</h1>
     </div>
   )
 }
