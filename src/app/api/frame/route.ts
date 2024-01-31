@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   Address,
   Hex,
+  TransactionExecutionError,
   createPublicClient,
   createWalletClient,
   http,
@@ -94,10 +95,19 @@ export async function POST(req: NextRequest): Promise<Response> {
       throw new Error('Could not simulate contract');
     }
 
-    const hash = await walletClient.writeContract(request);
+    try {
+      const hash = await walletClient.writeContract(request);
 
-    if (HAS_KV) {
-      await kv.set(`mint:${address}`, hash);
+      if (HAS_KV) {
+        await kv.set(`mint:${address}`, hash);
+      }
+    } catch (error) {
+      if (
+        error instanceof TransactionExecutionError &&
+        error.details.startsWith('gas required exceeds allowance')
+      ) {
+        return getResponse(ResponseType.OUT_OF_GAS);
+      }
     }
 
     return getResponse(ResponseType.SUCCESS);
@@ -112,6 +122,7 @@ enum ResponseType {
   RECAST,
   ALREADY_MINTED,
   NO_ADDRESS,
+  OUT_OF_GAS,
   ERROR,
 }
 
@@ -121,6 +132,7 @@ function getResponse(type: ResponseType) {
     [ResponseType.RECAST]: 'status/recast.png',
     [ResponseType.ALREADY_MINTED]: 'status/already-minted.png',
     [ResponseType.NO_ADDRESS]: 'status/no-address.png',
+    [ResponseType.OUT_OF_GAS]: 'status/out-of-gas.png',
     [ResponseType.ERROR]: 'status/error.png',
   }[type];
   const shouldRetry =
