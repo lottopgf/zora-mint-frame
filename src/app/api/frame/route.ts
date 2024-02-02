@@ -33,7 +33,19 @@ export async function POST(req: NextRequest): Promise<Response> {
   try {
     if (!MINTER_PRIVATE_KEY) throw new Error('MINTER_PRIVATE_KEY is not set');
 
-    const body: { trustedData?: { messageBytes?: string } } = await req.json();
+    const body = await req.json(); // This will parse the JSON body of the request
+
+    // Access untrustedData from the body
+    const untrustedData = body.untrustedData;
+    
+    // Now, extract the buttonIndex from untrustedData
+    const buttonIndex = untrustedData ? untrustedData.buttonIndex : null;
+    
+    // Use buttonIndex to determine the response
+    if (buttonIndex === 1) {
+      // If buttonIndex is 1, perform the redirect
+      return NextResponse.redirect(`${SITE_URL}/redirect`, { status: 302 });
+    } else {
 
     // Check if frame request is valid
     const status = await validateFrameRequest(body.trustedData?.messageBytes);
@@ -43,14 +55,6 @@ export async function POST(req: NextRequest): Promise<Response> {
       throw new Error('Invalid frame request');
     }
 
-    // Check if user has liked and recasted
-    const hasLikedAndRecasted =
-      !!status?.action?.cast?.viewer_context?.liked &&
-      !!status?.action?.cast?.viewer_context?.recasted;
-
-    if (!hasLikedAndRecasted) {
-      return getResponse(ResponseType.RECAST);
-    }
 
     // Check if user has an address connected
     const address: Address | undefined =
@@ -70,15 +74,26 @@ export async function POST(req: NextRequest): Promise<Response> {
     }
 
     // Check if user has a balance
-    const balance = await publicClient.readContract({
+    const first_balance = await publicClient.readContract({
       abi: Zora1155ABI,
       address: CONTRACT_ADDRESS,
       functionName: 'balanceOf',
       args: [address, TOKEN_ID],
     });
 
-    if (balance > 0n) {
-      return getResponse(ResponseType.ALREADY_MINTED);
+    if (first_balance < 1n) {
+      return getResponse(ResponseType.NFT_NOT_FOUND);
+    }
+
+    const second_balance = await publicClient.readContract({
+      abi: Zora1155ABI,
+      address: CONTRACT_ADDRESS,
+      functionName: 'balanceOf',
+      args: [address, 2n],
+    });
+
+    if (second_balance > 0n) {
+    return getResponse(ResponseType.ALREADY_MINTED);
     }
 
     // Try minting a new token
@@ -86,7 +101,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       address: CONTRACT_ADDRESS,
       abi: Zora1155ABI,
       functionName: 'adminMint',
-      args: [address, TOKEN_ID, 1n, '0x'],
+      args: [address, 2n, 1n, '0x'],
       account: privateKeyToAccount(MINTER_PRIVATE_KEY),
     });
 
@@ -109,7 +124,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
 enum ResponseType {
   SUCCESS,
-  RECAST,
+  NFT_NOT_FOUND,
   ALREADY_MINTED,
   NO_ADDRESS,
   ERROR,
@@ -118,20 +133,20 @@ enum ResponseType {
 function getResponse(type: ResponseType) {
   const IMAGE = {
     [ResponseType.SUCCESS]: 'status/success.png',
-    [ResponseType.RECAST]: 'status/recast.png',
+    [ResponseType.NFT_NOT_FOUND]: 'status/missing-nft.png',
     [ResponseType.ALREADY_MINTED]: 'status/already-minted.png',
     [ResponseType.NO_ADDRESS]: 'status/no-address.png',
     [ResponseType.ERROR]: 'status/error.png',
   }[type];
   const shouldRetry =
-    type === ResponseType.ERROR || type === ResponseType.RECAST;
+    type === ResponseType.ERROR || type === ResponseType.NFT_NOT_FOUND;
   return new NextResponse(`<!DOCTYPE html><html><head>
     <meta property="fc:frame" content="vNext" />
     <meta property="fc:frame:image" content="${SITE_URL}/${IMAGE}" />
     <meta property="fc:frame:post_url" content="${SITE_URL}/api/frame" />
     ${
       shouldRetry
-        ? `<meta property="fc:frame:button:1" content="Try again" />`
+        ? `<meta property="fc:frame:button:1" content="Try again" /><meta property="fc:frame:button:2" content="Mint on Zora" /><meta property="fc:frame:button:2:action" content="post_redirect" />`
         : ''
     }
   </head></html>`);
