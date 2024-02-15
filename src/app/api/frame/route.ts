@@ -168,5 +168,6 @@ async function validateFrameRequest(data: string | undefined) {
     options,
   )
     .then((response) => response.json())
-    .catch((err) => console.error(err));
+    .catch((err) => console.error("Failed to validate frame request with Neynar API:", err));
+
 }
